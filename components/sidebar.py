@@ -208,7 +208,7 @@ def render_sidebar():
         st.divider()
 
         # === Smart RAG System ===
-        st.subheader("🧠 Smart RAG System")
+        st.subheader("🧠 LangChain RAG System")
         st.markdown(
             "**Semantic Document Search** uses AI to find only relevant document sections."
         )
@@ -222,35 +222,16 @@ def render_sidebar():
 
         if use_rag:
             try:
-                from utils.rag_system import initialize_rag_system, index_documents_if_needed
+                from utils.rag_system import initialize_rag_system, index_documents_if_needed, render_rag_status_sidebar
 
                 rag_system = initialize_rag_system(api_key)
-                if st.session_state.documents and not rag_system.chunks:
-                    with st.spinner("🔄 Indexing documents..."):
-                        index_documents_if_needed(rag_system)
-
-                if rag_system.chunks:
-                    stats = rag_system.get_statistics()
-                    st.success("✅ RAG System Active")
-
-                    col1, col2 = st.columns(2)
-                    col1.metric("Indexed Chunks", stats["total_chunks"])
-                    col2.metric("Documents", stats["total_documents"])
-                    st.metric("Avg Chunk Size", f"{stats['avg_chunk_size']} chars")
-
-                    st.caption("📚 Indexed Documents:")
-                    for src in stats["sources"]:
-                        st.text(f"✓ {src}")
-
-                    if st.button("🔄 Re-index All Documents", use_container_width=True):
-                        rag_system.chunks.clear()
-                        rag_system.embeddings_cache.clear()
-                        with st.spinner("Re-indexing..."):
-                            index_documents_if_needed(rag_system)
-                        show_success_message("Documents re-indexed successfully!")
-                        st.rerun()
-                else:
-                    st.info("📝 No documents indexed yet. Upload some to enable RAG.")
+                if st.session_state.documents:
+                    # Check if we need to index (first run)
+                    index_documents_if_needed(rag_system)
+                
+                # Render the status and controls
+                render_rag_status_sidebar()
+                
             except Exception as e:
                 st.error(f"❌ Error initializing RAG: {e}")
                 st.session_state.use_rag = False

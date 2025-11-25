@@ -1,349 +1,241 @@
 """
-Enhanced RAG (Retrieval-Augmented Generation) Implementation
-Adds semantic search and intelligent document chunking
+LangChain RAG System Implementation
+Replaces custom RAG with LangChain + Google GenAI + ChromaDB
 """
-
+import os
+import shutil
 import streamlit as st
-import google.generativeai as genai
-from typing import List, Dict, Tuple
-import numpy as np
-from dataclasses import dataclass
-import re
+from typing import List, Dict, Tuple, Any
+from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+from langchain_community.vectorstores import Chroma
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.chains import RetrievalQA
+from langchain.memory import ConversationBufferMemory
+from langchain.prompts import PromptTemplate
+from langchain.docstore.document import Document
+from langchain.chains import ConversationalRetrievalChain
 
+# Constants
+CHROMA_DB_DIR = "./chroma_db"
+COLLECTION_NAME = "job_assistant_collection"
+EMBEDDING_MODEL = "models/embedding-001"
+LLM_MODEL = "gemini-2.5-flash"
 
-@dataclass
-class DocumentChunk:
-    """Represents a chunk of document with metadata"""
-    content: str
-    source: str
-    chunk_id: int
-    embedding: np.ndarray = None
-    metadata: Dict = None
-
-
-class EnhancedRAGSystem:
-    """
-    Enhanced RAG system with semantic search capabilities
-    Uses Gemini's embedding API for semantic matching
-    """
-    
-    def __init__(self, api_key: str):
+class LangChainRAGSystem:
+    def __init__(self, api_key: str, persist_directory: str = CHROMA_DB_DIR):
+        """Initialize the RAG system with LangChain components"""
         self.api_key = api_key
-        genai.configure(api_key=api_key)
-        self.chunks: List[DocumentChunk] = []
-        self.embeddings_cache = {}
+        self.persist_directory = persist_directory
         
-    def chunk_document(self, text: str, source: str, chunk_size: int = 1000, 
-                       overlap: int = 200) -> List[DocumentChunk]:
+        # Initialize Embeddings
+        self.embeddings = GoogleGenerativeAIEmbeddings(
+            model=EMBEDDING_MODEL,
+            google_api_key=api_key
+        )
+        
+        # Initialize Vector Store (ChromaDB)
+        self.vector_store = Chroma(
+            persist_directory=persist_directory,
+            embedding_function=self.embeddings,
+            collection_name=COLLECTION_NAME
+        )
+        
+        # Initialize LLM
+        self.llm = ChatGoogleGenerativeAI(
+            model=LLM_MODEL,
+            google_api_key=api_key,
+            temperature=0.7,
+            convert_system_message_to_human=True
+        )
+        
+        # Initialize Memory
+        self.memory = ConversationBufferMemory(
+            memory_key="chat_history",
+            return_messages=True,
+            output_key="answer"
+        )
+        
+        # Initialize Text Splitter
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+            separators=["\n\n", "\n", " ", ""]
+        )
+
+    def index_documents(self, documents: Dict[str, str], force_reindex: bool = False) -> bool:
         """
-        Split document into overlapping chunks for better context preservation
+        Index documents into ChromaDB.
         
         Args:
-            text: Document text
-            source: Document name/source
-            chunk_size: Target size of each chunk in characters
-            overlap: Overlap between chunks to maintain context
+            documents: Dictionary of {filename: content}
+            force_reindex: If True, delete existing DB and rebuild
         """
-        # Clean text
-        text = re.sub(r'\s+', ' ', text).strip()
-        
-        chunks = []
-        start = 0
-        chunk_id = 0
-        
-        while start < len(text):
-            end = start + chunk_size
-            
-            # Try to break at sentence boundary
-            if end < len(text):
-                # Look for sentence endings
-                sentence_end = max(
-                    text.rfind('.', start, end),
-                    text.rfind('!', start, end),
-                    text.rfind('?', start, end),
-                    text.rfind('\n', start, end)
+        try:
+            if not documents:
+                return False
+                
+            # Check if we need to reindex
+            current_count = self.vector_store._collection.count()
+            if current_count > 0 and not force_reindex:
+                return True  # Already indexed
+                
+            if force_reindex and os.path.exists(self.persist_directory):
+                # Clear existing DB
+                self.vector_store = None
+                shutil.rmtree(self.persist_directory)
+                # Re-initialize
+                self.vector_store = Chroma(
+                    persist_directory=self.persist_directory,
+                    embedding_function=self.embeddings,
+                    collection_name=COLLECTION_NAME
                 )
-                if sentence_end > start:
-                    end = sentence_end + 1
             
-            chunk_text = text[start:end].strip()
+            # Process documents
+            docs_to_index = []
+            for filename, content in documents.items():
+                # Create Document objects
+                raw_doc = Document(page_content=content, metadata={"source": filename})
+                # Split into chunks
+                chunks = self.text_splitter.split_documents([raw_doc])
+                docs_to_index.extend(chunks)
             
-            if chunk_text:
-                chunks.append(DocumentChunk(
-                    content=chunk_text,
-                    source=source,
-                    chunk_id=chunk_id,
-                    metadata={'start_pos': start, 'end_pos': end}
-                ))
-                chunk_id += 1
+            # Add to Vector Store
+            if docs_to_index:
+                self.vector_store.add_documents(docs_to_index)
+                self.vector_store.persist()
+                return True
+                
+            return False
             
-            start = end - overlap
-        
-        return chunks
-    
-    def get_embedding(self, text: str) -> np.ndarray:
-        """
-        Get embedding vector for text using Gemini API
-        Implements caching to reduce API calls
-        """
-        # Check cache first
-        text_hash = hash(text[:500])  # Hash first 500 chars for cache key
-        if text_hash in self.embeddings_cache:
-            return self.embeddings_cache[text_hash]
-        
+        except Exception as e:
+            st.error(f"Error indexing documents: {str(e)}")
+            return False
+
+    def retrieve_relevant_chunks(self, query: str, k: int = 5) -> List[Document]:
+        """Retrieve relevant document chunks using MMR"""
         try:
-            # Use Gemini embedding model
-            result = genai.embed_content(
-                model="models/embedding-001",
-                content=text,
-                task_type="retrieval_document"
+            # Use Max Marginal Relevance for diversity
+            retriever = self.vector_store.as_retriever(
+                search_type="mmr",
+                search_kwargs={"k": k, "fetch_k": k*2}
             )
-            embedding = np.array(result['embedding'])
-            
-            # Cache the result
-            self.embeddings_cache[text_hash] = embedding
-            return embedding
-            
+            return retriever.get_relevant_documents(query)
         except Exception as e:
-            st.warning(f"Embedding error: {e}. Using fallback.")
-            # Fallback: simple hash-based pseudo-embedding
-            return np.random.rand(768)  # Standard embedding dimension
-    
-    def cosine_similarity(self, vec1: np.ndarray, vec2: np.ndarray) -> float:
-        """Calculate cosine similarity between two vectors"""
-        dot_product = np.dot(vec1, vec2)
-        norm1 = np.linalg.norm(vec1)
-        norm2 = np.linalg.norm(vec2)
-        
-        if norm1 == 0 or norm2 == 0:
-            return 0.0
-        
-        return dot_product / (norm1 * norm2)
-    
-    def index_documents(self, documents: Dict[str, str], chunk_size: int = 1000):
-        """
-        Process and index all documents
-        
-        Args:
-            documents: Dict of {filename: content}
-            chunk_size: Size of text chunks
-        """
-        self.chunks = []
-        
-        with st.spinner("📚 Indexing documents with semantic search..."):
-            progress_bar = st.progress(0)
-            total_docs = len(documents)
-            
-            for idx, (source, content) in enumerate(documents.items()):
-                # Chunk the document
-                doc_chunks = self.chunk_document(content, source, chunk_size)
-                
-                # Generate embeddings for each chunk
-                for chunk in doc_chunks:
-                    chunk.embedding = self.get_embedding(chunk.content)
-                
-                self.chunks.extend(doc_chunks)
-                progress_bar.progress((idx + 1) / total_docs)
-            
-            progress_bar.empty()
-            st.success(f"✅ Indexed {len(self.chunks)} chunks from {total_docs} documents")
-    
-    def retrieve_relevant_chunks(self, query: str, top_k: int = 5) -> List[DocumentChunk]:
-        """
-        Retrieve most relevant chunks for a query using semantic search
-        
-        Args:
-            query: User query or context
-            top_k: Number of top chunks to retrieve
-        """
-        if not self.chunks:
+            print(f"Retrieval error: {e}")
             return []
-        
-        # Get query embedding
-        query_embedding = self.get_embedding(query)
-        
-        # Calculate similarities
-        similarities = []
-        for chunk in self.chunks:
-            if chunk.embedding is not None:
-                sim = self.cosine_similarity(query_embedding, chunk.embedding)
-                similarities.append((sim, chunk))
-        
-        # Sort by similarity and return top_k
-        similarities.sort(reverse=True, key=lambda x: x[0])
-        
-        return [chunk for _, chunk in similarities[:top_k]]
-    
-    def build_context(self, query: str, base_context: str, 
-                     max_chunks: int = 5) -> str:
-        """
-        Build enhanced context using RAG
-        
-        Args:
-            query: User query
-            base_context: Basic context (guidelines, personal details)
-            max_chunks: Maximum number of relevant chunks to include
-        """
-        # Retrieve relevant chunks
-        relevant_chunks = self.retrieve_relevant_chunks(query, top_k=max_chunks)
-        
-        # Build context
-        context = f"""{base_context}
 
-RELEVANT INFORMATION FROM YOUR DOCUMENTS:
-"""
-        
-        seen_sources = set()
-        for chunk in relevant_chunks:
-            if chunk.source not in seen_sources:
-                context += f"\n--- From {chunk.source} ---\n"
-                seen_sources.add(chunk.source)
-            context += f"{chunk.content}\n\n"
-        
-        return context
-    
-    def generate_with_rag(self, prompt_template: str, query_context: str, 
-                         model_name: str = "gemini-2.5-flash", **kwargs) -> str:
+    def generate_with_rag(self, prompt_template: str, query_context: str, **kwargs) -> str:
         """
-        Generate content using RAG-enhanced context
-        
-        Args:
-            prompt_template: Prompt template with placeholders
-            query_context: Context about what user is asking for
-            model_name: Gemini model to use
-            **kwargs: Variables to fill in prompt template
+        Generate content using RAG context.
+        Compatible with existing generate_content_with_context signature.
         """
-        # Get base context (guidelines, personal details, job description)
-        base_context = self._get_base_context()
-        
-        # Build enhanced context with relevant chunks
-        enhanced_context = self.build_context(query_context, base_context)
-        
-        # Fill template
-        filled_prompt = prompt_template.format(**kwargs)
-        
-        # Combine and generate
-        full_prompt = f"{enhanced_context}\n\n{filled_prompt}"
-        
         try:
-            model = genai.GenerativeModel(model_name=model_name)
-            response = model.generate_content(full_prompt)
-            return response.text
+            # 1. Retrieve relevant context
+            docs = self.retrieve_relevant_chunks(query_context)
+            context_text = "\n\n".join([doc.page_content for doc in docs])
+            
+            # 2. Format prompt with context
+            # We inject the RAG context into the prompt
+            rag_prompt = f"""
+            Context information is below.
+            ---------------------
+            {context_text}
+            ---------------------
+            Given the context information and not prior knowledge, answer the query.
+            
+            {prompt_template}
+            """
+            
+            # 3. Generate response using LLM
+            # We format the prompt with kwargs if needed, but usually the template is already formatted
+            # or we let the LLM handle it. Here we assume prompt_template is the main instruction.
+            
+            messages = [{"role": "user", "content": rag_prompt}]
+            response = self.llm.invoke(messages)
+            return response.content
+            
         except Exception as e:
-            return f"Error: {str(e)}"
-    
-    def _get_base_context(self) -> str:
-        """Get base context from session state"""
-        return f"""{st.session_state.writing_guidelines}
+            st.error(f"RAG Generation Error: {str(e)}")
+            return "Error generating content with RAG."
 
-PERSONAL DETAILS:
-{st.session_state.personal_details}
+    def generate_with_conversation(self, query: str) -> Tuple[str, List[Document]]:
+        """Generate a response for Q&A with memory"""
+        try:
+            retriever = self.vector_store.as_retriever(
+                search_type="mmr",
+                search_kwargs={"k": 4}
+            )
+            
+            qa_chain = ConversationalRetrievalChain.from_llm(
+                llm=self.llm,
+                retriever=retriever,
+                memory=self.memory,
+                return_source_documents=True,
+                verbose=True
+            )
+            
+            result = qa_chain({"question": query})
+            return result["answer"], result["source_documents"]
+            
+        except Exception as e:
+            return f"Error in conversation: {str(e)}", []
 
-TARGET JOB DESCRIPTION:
-{st.session_state.job_description}
-"""
-    
     def get_statistics(self) -> Dict:
-        """Get statistics about indexed documents"""
-        if not self.chunks:
+        """Get stats about the vector store"""
+        try:
+            count = self.vector_store._collection.count()
+            # Get unique sources (this is a bit hacky with Chroma but works)
+            # We'll just return basic stats
             return {
-                'total_chunks': 0,
-                'total_documents': 0,
-                'avg_chunk_size': 0
+                "total_chunks": count,
+                "storage_path": self.persist_directory,
+                "status": "Active"
             }
-        
-        sources = set(chunk.source for chunk in self.chunks)
-        avg_size = sum(len(chunk.content) for chunk in self.chunks) / len(self.chunks)
-        
-        return {
-            'total_chunks': len(self.chunks),
-            'total_documents': len(sources),
-            'avg_chunk_size': int(avg_size),
-            'sources': list(sources)
-        }
+        except Exception:
+            return {"total_chunks": 0, "status": "Error"}
+
+    def clear_memory(self):
+        """Clear conversation memory"""
+        self.memory.clear()
+
+    def similarity_search(self, query: str, k: int = 5) -> List[Tuple[Document, float]]:
+        """Raw similarity search with scores"""
+        return self.vector_store.similarity_search_with_score(query, k=k)
 
 
-# Integration helper functions
+# Helper Functions
 
-def initialize_rag_system(api_key: str) -> EnhancedRAGSystem:
-    """Initialize RAG system and store in session state"""
-    if 'rag_system' not in st.session_state:
-        st.session_state.rag_system = EnhancedRAGSystem(api_key)
+def initialize_rag_system(api_key: str) -> LangChainRAGSystem:
+    """Initialize or return existing RAG system"""
+    if 'rag_system' not in st.session_state or st.session_state.rag_system is None:
+        st.session_state.rag_system = LangChainRAGSystem(api_key)
     return st.session_state.rag_system
 
+def index_documents_if_needed(rag_system: LangChainRAGSystem, force_reindex: bool = False):
+    """Index documents if they haven't been indexed yet"""
+    if st.session_state.documents:
+        with st.spinner("🔄 Indexing documents into ChromaDB..."):
+            rag_system.index_documents(st.session_state.documents, force_reindex)
 
-def index_documents_if_needed(rag_system: EnhancedRAGSystem):
-    """Index documents if not already indexed"""
-    if not rag_system.chunks and st.session_state.documents:
-        rag_system.index_documents(st.session_state.documents)
-
-
-def generate_email_with_rag(rag_system: EnhancedRAGSystem, 
-                            email_purpose: str, 
-                            email_tone: str,
-                            salutation: str,
-                            additional_context: str) -> str:
-    """
-    Generate email using RAG system
-    Example integration with email writer
-    """
-    query_context = f"""
-    Generate a {email_tone} {email_purpose} email.
-    Focus on: job requirements, matching skills, relevant projects.
-    Additional context: {additional_context}
-    """
-    
-    prompt_template = """
-TASK: Write a {email_tone} job application email for: {email_purpose}
-
-SALUTATION: {salutation}
-
-ADDITIONAL CONTEXT:
-{additional_context}
-
-REQUIREMENTS:
-- Start with: Subject: [create a short, relevant subject line]
-- Use the salutation: {salutation}
-- Keep it to 1-2 SHORT paragraphs maximum
-- Highlight specific technologies that match the job and my background
-- Reference relevant projects that demonstrate required skills
-- Mention F1 OPT work authorization
-- End with proper signature
-- Make it sound human and confident
-- NO bold text or excessive formatting
-
-Generate the email now:
-"""
-    
-    return rag_system.generate_with_rag(
-        prompt_template,
-        query_context,
-        email_tone=email_tone,
-        email_purpose=email_purpose,
-        salutation=salutation,
-        additional_context=additional_context
-    )
-
-
-# Example usage in Streamlit component
-def render_rag_status():
-    """Render RAG system status in sidebar"""
-    if 'rag_system' in st.session_state:
+def render_rag_status_sidebar():
+    """Render RAG status in the sidebar"""
+    if 'rag_system' in st.session_state and st.session_state.rag_system:
         rag = st.session_state.rag_system
         stats = rag.get_statistics()
         
-        with st.expander("🧠 Smart RAG System Status"):
-            if stats['total_chunks'] > 0:
-                st.success(f"✅ RAG System Active")
-                st.metric("Indexed Chunks", stats['total_chunks'])
-                st.metric("Documents", stats['total_documents'])
-                st.metric("Avg Chunk Size", f"{stats['avg_chunk_size']} chars")
-                
-                st.markdown("**Indexed Documents:**")
-                for source in stats['sources']:
-                    st.text(f"  • {source}")
-            else:
-                st.info("📝 No documents indexed yet")
-                if st.button("🔄 Index Documents Now"):
-                    index_documents_if_needed(rag)
-                    st.rerun()
+        st.success("✅ ChromaDB Active")
+        st.caption(f"Storage: {stats.get('storage_path', 'N/A')}")
+        
+        col1, col2 = st.columns(2)
+        col1.metric("Embeddings", stats.get("total_chunks", 0))
+        col2.metric("Docs Loaded", len(st.session_state.documents))
+        
+        col3, col4 = st.columns(2)
+        with col3:
+            if st.button("🔄 Re-index", help="Rebuild vector database"):
+                index_documents_if_needed(rag, force_reindex=True)
+                st.rerun()
+        with col4:
+            if st.button("🗑️ Clear Mem", help="Clear chat history"):
+                rag.clear_memory()
+                st.success("Memory cleared!")

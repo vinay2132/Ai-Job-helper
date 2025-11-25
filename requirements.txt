@@ -10,3 +10,9 @@ beautifulsoup4>=4.12.0
 python-docx>=0.8.11
 cryptography>=41.0.0
 
+
+# LangChain with Google Generative AI support
+langchain>=0.1.0
+langchain-google-genai>=0.0.6
+chromadb>=0.4.22
+tiktoken>=0.5.2

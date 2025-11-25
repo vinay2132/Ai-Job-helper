@@ -11,7 +11,7 @@ A powerful, secure, and modular AI-powered assistant designed to streamline your
 -   **✉️ Cover Letter Generator**: Creates personalized cover letters.
 -   **💬 Q&A Assistant**: Chat with your documents to prepare for interviews.
 -   **📊 Document Summary**: Quickly analyze job descriptions and resumes.
--   **🧠 RAG System**: Semantic search across your documents for accurate context.
+-   **🧠 LangChain RAG System**: Advanced semantic search using **LangChain** and **ChromaDB** for persistent, accurate context retrieval.
 
 ## 📂 Project Structure
 
