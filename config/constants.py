@@ -7,8 +7,8 @@ DEFAULT_API_KEY = None
 GEMINI_MODEL = "gemini-2.5-flash"
 
 # File Configuration
-DEFAULT_RESUME = "Vinay_Ramesh_full_stack_developer.pdf"
-DEFAULT_PROJECTS = "My_projects.txt"
+DEFAULT_RESUME = "data/Vinay_Ramesh_full_stack_developer.pdf"
+DEFAULT_PROJECTS = "data/My_projects.txt"
 SUPPORTED_FILE_TYPES = ['pdf', 'docx', 'txt']
 
 # Personal Details Template

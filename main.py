@@ -167,8 +167,8 @@ def main():
         st.error(f"⚠️ No documents loaded. Please make sure your files are in the same folder as this script, or upload them manually in the sidebar.")
         st.info("""
         ### Getting Started:
-        1. Place your resume file named `Vinay_Ramesh_full_stack_developer.pdf` in the same folder as this script
-        2. Place your projects file named `My_projects.txt` in the same folder as this script
+        1. Place your resume file named `Vinay_Ramesh_full_stack_developer.pdf` in the `data/` folder
+        2. Place your projects file named `My_projects.txt` in the `data/` folder
         3. Or upload your files manually using the sidebar
         4. Configure your target job description in the sidebar
         5. Choose a task from the tabs below once your documents are loaded
