@@ -19,7 +19,7 @@ Contact Number: +1 (682) 273-5833
 Portfolio: https://vinay2132.github.io/my_portfolio/
 GitHub: https://github.com/vinay2132
 Education: Master of Science in Data Science (UNT, Sep 2023 – Dec 2024), Bachelor of Technology in Computer Science (TKR College of Engineering & Technology, Jun 2017 – May 2021)
-Current Location: Denton, TX
+Current Location: Tracy, California, United States
 Relocation: Yes
 Availability to Take Call: Yes
 Availability to Join: Within 1-2 weeks
@@ -71,6 +71,7 @@ Senior Full Stack Developer
 📧 vinayramesh6020@gmail.com
 📞 +1 (682) 273-5833
 🌐 Portfolio: https://vinay2132.github.io/my_portfolio/
+🔗 LinkedIn: https://www.linkedin.com/in/vinayramesh6020/
 💻 GitHub: https://github.com/vinay2132
 
 4. CONTENT REQUIREMENTS:
