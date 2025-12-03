@@ -12,7 +12,10 @@ def render_document_analysis(api_key):
     
     st.header("📊 Document Summary & Analysis")
     st.markdown("Get insights and summaries based on your documents and target job.")
-    st.info("💡 Analysis will include job match assessment")
+    if st.session_state.get('jd_configured') and st.session_state.get('job_description'):
+        st.info("💡 Analysis will include job match assessment")
+    else:
+        st.info("💡 Analysis will focus on your documents and portfolio")
     
     analysis_type = st.selectbox(
         "What would you like to analyze?",
@@ -30,14 +33,20 @@ def render_document_analysis(api_key):
     
     if st.button("📊 Analyze", key="analyze_docs"):
         with st.spinner("Analyzing your documents..."):
-            prompt_template = """
-TASK: {analysis_type}
+            # Check if JD is configured
+            jd_context = ""
+            if st.session_state.get('jd_configured') and st.session_state.get('job_description'):
+                jd_context = "- The TARGET JOB DESCRIPTION\n- How well I match the job requirements"
+            else:
+                jd_context = "- General career best practices (since no job description is provided)"
+
+            prompt_template = f"""
+TASK: {{analysis_type}}
 
 Provide a comprehensive analysis based on the request, considering:
 - My resume and documents
 - My PROJECT PORTFOLIO with detailed project information
-- The TARGET JOB DESCRIPTION
-- How well I match the job requirements
+{jd_context}
 - Which specific projects demonstrate the required skills
 
 Be specific, detailed, and actionable:

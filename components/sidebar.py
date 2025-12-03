@@ -104,7 +104,7 @@ def render_sidebar():
     # Only show the rest of the sidebar if unlocked
     if api_key:
         # === Job Description Configuration ===
-        st.header("🎯 Configure Target Job Description")
+        st.header("🎯 Configure Target Job Description (Optional)")
         st.markdown("Choose your input method:")
 
         # Tabs for input methods

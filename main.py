@@ -177,28 +177,11 @@ def main():
     
     # Check if job description is configured
     if not st.session_state.jd_configured or not st.session_state.job_description.strip():
-        st.warning("⚠️ Please configure your target job description first!")
-        st.info("""
-        ### Before You Begin:
-        
-        **📋 Configure your target job description in the sidebar** (under "🎯 Configure Target Job Description")
-        
-        Choose one of two methods:
-        - **📝 Manual Entry**: Paste the job description directly
-        - **🔗 Fetch from URL**: Automatically extract from job posting URL
-        
-        This is a **one-time setup** that will:
-        - ✅ Generate tailored emails automatically
-        - ✅ Update your resume to match the job requirements
-        - ✅ Create customized cover letters
-        - ✅ Provide job-specific career advice
-        
-        Simply configure once, and all features will use it as context!
-        """)
-        st.stop()
-    
-    # Show job description status
-    st.success(f"✅ Target job configured! All features are using your job description as context.")
+        st.warning("⚠️ No target job description configured. Features will use generic context.")
+        st.info("💡 Tip: Configure a job description in the sidebar for better results!")
+    else:
+        # Show job description status
+        st.success(f"✅ Target job configured! All features are using your job description as context.")
     
     # Show source information
     col1, col2 = st.columns([3, 1])

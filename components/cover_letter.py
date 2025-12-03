@@ -12,7 +12,10 @@ def render_cover_letter(api_key):
     
     st.header("✉️ Cover Letter Generator")
     st.markdown("Create compelling cover letters based on your configured job description.")
-    st.info("💡 Using your configured job description as context")
+    if st.session_state.get('jd_configured') and st.session_state.get('job_description'):
+        st.info("💡 Using your configured job description as context")
+    else:
+        st.info("💡 No job description configured - writing a general cover letter")
     
     hiring_manager_cl = st.text_input(
         "Hiring Manager Name (optional)",
@@ -29,13 +32,20 @@ def render_cover_letter(api_key):
     
     if st.button("✨ Generate Cover Letter", key="generate_cl"):
         with st.spinner("Crafting your cover letter..."):
-            prompt_template = """
-TASK: Write a compelling cover letter for the TARGET JOB DESCRIPTION provided above
+            # Check if JD is configured
+            jd_task = ""
+            if st.session_state.get('jd_configured') and st.session_state.get('job_description'):
+                jd_task = "TASK: Write a compelling cover letter for the TARGET JOB DESCRIPTION provided above"
+            else:
+                jd_task = "TASK: Write a compelling general cover letter highlighting my Full Stack Development skills"
 
-HIRING MANAGER: {hiring_manager}
+            prompt_template = f"""
+{jd_task}
+
+HIRING MANAGER: {{hiring_manager}}
 
 WHY INTERESTED (if provided):
-{why_interested}
+{{why_interested}}
 
 Write a cover letter that:
 - Uses "Dear Hiring Manager," if no specific name is provided, otherwise use the hiring manager's name

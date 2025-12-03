@@ -15,7 +15,10 @@ def render_email_writer(api_key):
     
     st.header("📧 Professional Email Writer")
     st.markdown("Generate professional emails based on your configured job description.")
-    st.info("💡 Using your configured job description as context")
+    if st.session_state.get('jd_configured') and st.session_state.get('job_description'):
+        st.info("💡 Using your configured job description as context")
+    else:
+        st.info("💡 No job description configured - using generic professional context")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -45,19 +48,26 @@ def render_email_writer(api_key):
         with st.spinner("Generating email..."):
             salutation = f"Dear {hiring_manager_name}," if hiring_manager_name else "Dear Hiring Manager,"
             
-            prompt_template = """
-TASK: Write a {email_tone} job application email for: {email_purpose}
+            # Check if JD is configured
+            jd_context = ""
+            if st.session_state.get('jd_configured') and st.session_state.get('job_description'):
+                jd_context = "Reference the TARGET JOB DESCRIPTION provided in the context"
+            else:
+                jd_context = "Focus on my general skills and experience as I haven't provided a specific job description"
 
-SALUTATION: {salutation}
+            prompt_template = f"""
+TASK: Write a {{email_tone}} job application email for: {{email_purpose}}
+
+SALUTATION: {{salutation}}
 
 ADDITIONAL CONTEXT (if provided):
-{additional_context}
+{{additional_context}}
 
 REQUIREMENTS:
 - Start with: Subject: [create a short, relevant subject line]
-- Use the salutation: {salutation}
+- Use the salutation: {{salutation}}
 - Keep it to 1-2 SHORT paragraphs maximum
-- Highlight specific technologies that match BOTH the target job description and my resume
+- Highlight specific technologies that match BOTH the target job description (if provided) and my resume
 - Reference relevant projects from my PROJECT PORTFOLIO that demonstrate the required skills
 - Mention specific project achievements that align with the job requirements
 - Clearly mention F1 OPT work authorization
@@ -65,7 +75,7 @@ REQUIREMENTS:
 - End with the EXACT signature format from the guidelines (with portfolio and GitHub URLs)
 - Make it sound human, natural, and confident
 - NO bold text, asterisks, or highlighting
-- Reference the TARGET JOB DESCRIPTION provided in the context
+- {jd_context}
 - You can mention "View more projects at my portfolio" if relevant
 
 Generate the email now:

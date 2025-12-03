@@ -12,7 +12,10 @@ def render_resume_updater(api_key):
     
     st.header("📄 Resume Updater")
     st.markdown("Update your resume to match your configured job description.")
-    st.info("💡 Using your configured job description as context")
+    if st.session_state.get('jd_configured') and st.session_state.get('job_description'):
+        st.info("💡 Using your configured job description as context")
+    else:
+        st.info("💡 No job description configured - optimizing for general best practices")
     
     update_type = st.radio(
         "What would you like to update?",
@@ -27,21 +30,28 @@ def render_resume_updater(api_key):
     
     if st.button("🔄 Update Resume", key="update_resume"):
         with st.spinner("Updating resume..."):
-            prompt_template = """
-TASK: {update_type}
+            # Check if JD is configured
+            jd_instruction = ""
+            if st.session_state.get('jd_configured') and st.session_state.get('job_description'):
+                jd_instruction = "Based on my background and the TARGET JOB DESCRIPTION provided above"
+            else:
+                jd_instruction = "Based on my background and general best practices for a Full Stack Developer"
 
-Based on my background and the TARGET JOB DESCRIPTION provided above, {update_type_lower}.
+            prompt_template = f"""
+TASK: {{update_type}}
+
+{jd_instruction}, {{update_type_lower}}.
 
 ADDITIONAL INSTRUCTIONS:
-{additional_instructions}
+{{additional_instructions}}
 
 REQUIREMENTS:
-- Highlight relevant skills and experiences that match the target job
-- Use keywords from the job description naturally
+- Highlight relevant skills and experiences
+- Use professional keywords
 - Reference specific projects from my PROJECT PORTFOLIO that demonstrate required skills
 - Include concrete project achievements and technologies used
 - Maintain professional format WITHOUT excessive bold or highlighting
-- Emphasize achievements that match the role
+- Emphasize achievements
 - Keep it concise and ATS-friendly
 - Sound natural and human, not AI-generated
 
