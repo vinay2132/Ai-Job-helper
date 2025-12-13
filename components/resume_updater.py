@@ -55,6 +55,15 @@ REQUIREMENTS:
 - Keep it concise and ATS-friendly
 - Sound natural and human, not AI-generated
 
+MANDATORY IMPROVEMENTS:
+- **SKILLS FORMAT:** usage of a 2-column table is REQUIRED. Format the SKILLS section STRICTLY as:
+  Category Name: Skill 1, Skill 2, Skill 3
+  Category Name: Skill 1, Skill 2
+  (Do NOT use bullet points for individual skills. Group them by category on a single line so they can be parsed into a table).
+- **EXPERIENCE SUMMARY:** Explicitly state total relevant experience as "5.5 years" in the summary to match the "5+" requirement.
+- **CS FUNDAMENTALS:** Explicitly include the exact phrase "Comprehensive computer science fundamentals in coding, object-oriented programming, data structures, and algorithms" in the Summary or as a dedicated bullet point.
+- **SCALE:** For roles at "Loyalty Juggernaut" and "Hexaware Technologies", you MUST quantify scale using specific placeholders if exact numbers are unknown. Use format like "[X million transactions processed]" or "[Y user base]" to emphasize scale.
+
 Provide the updated section or full resume:
 """
             

@@ -256,9 +256,24 @@ Analyze this job description and create a tailored version of the resume that em
 5. Quantify achievements where possible
 6. DO NOT include general experience descriptions, technology lists, or job description content in the EXPERIENCE section
 
+**MANDATORY IMPROVEMENTS:**
+- **SKILLS FORMAT:** usage of a 2-column table is REQUIRED. Format the SKILLS section STRICTLY as:
+  Category Name: Skill 1, Skill 2, Skill 3
+  Category Name: Skill 1, Skill 2
+  (Do NOT use bullet points for individual skills. Group them by category on a single line so they can be parsed into a table).
+- **EXPERIENCE SUMMARY:** Explicitly state total relevant experience as "5.5 years" in the summary to match the "5+" requirement.
+- **CS FUNDAMENTALS:** Explicitly include the exact phrase "Comprehensive computer science fundamentals in coding, object-oriented programming, data structures, and algorithms" in the Summary or as a dedicated bullet point.
+- **SCALE:** For roles at "Loyalty Juggernaut" and "Hexaware Technologies", you MUST quantify scale using specific placeholders if exact numbers are unknown. Use format like "[X million transactions processed]" or "[Y user base]" to emphasize scale.
+
 **OUTPUT FORMAT:**
 
 SUMMARY:
+[Summary with mandatory phrases]
+
+SKILLS:
+Frontend: React, Redux, ...
+Backend: Python, Node.js, ...
+[Other Categories]: [Skills]
 [3-4 sentence summary emphasizing alignment with the role]
 
 SKILLS:

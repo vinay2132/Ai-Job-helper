@@ -112,32 +112,50 @@ def render_sidebar():
 
         # --- Manual Entry Tab ---
         with jd_tab1:
+            def update_job_description():
+                st.session_state.job_description = st.session_state.manual_jd_input
+                st.session_state.jd_configured = bool(st.session_state.manual_jd_input.strip())
+                if "job_url" in st.session_state:
+                    del st.session_state.job_url
+                if "job_details" in st.session_state:
+                    del st.session_state.job_details
+                # We don't need to show a success message on every keystroke/blur, 
+                # but the state is updated instantly.
+
             st.markdown("**Paste job description manually:**")
             job_desc_input = st.text_area(
                 "Job Description",
                 value=st.session_state.job_description,
                 height=300,
                 placeholder="Paste full job description here...",
-                key="manual_jd_input"
+                key="manual_jd_input",
+                on_change=update_job_description
             )
 
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("💾 Save Job Description", use_container_width=True):
-                    st.session_state.job_description = job_desc_input
-                    st.session_state.jd_configured = True
-                    if "job_url" in st.session_state:
-                        del st.session_state.job_url
-                    show_success_message("Job description saved! All features will use this as context.")
-                    st.rerun()
+                # Spacer to keep layout aligned if we want, or we can just have the clear button take full width or stay in col2
+                # Let's keep the Clear button in a column but maybe make it full width if it's the only action, 
+                # or just leave it in col2 to prevent layout shift.
+                # Actually, simply removing col1 and having Clear button might be cleaner, 
+                # but let's stick to the plan of removing the save button.
+                pass 
             with col2:
                 if st.button("🗑️ Clear Job Description", use_container_width=True):
                     st.session_state.job_description = ""
                     st.session_state.jd_configured = False
-                    for key in ["job_url", "job_details"]:
-                        st.session_state.pop(key, None)
-                    show_info_message("Job description cleared.")
+                    for key in ["job_url", "job_details", "manual_jd_input"]:
+                        if key in st.session_state:
+                           if key == "manual_jd_input":
+                               # We can't delete the key associated with the widget effectively while it renders, 
+                               # but setting job_description to "" handling re-render usually works.
+                               pass 
+                           else:
+                               st.session_state.pop(key, None)
+                    
+                    # Force a rerun to clear the widget visually via the 'value' param
                     st.rerun()
+
 
         # --- URL Fetching Tab ---
         with jd_tab2:
