@@ -32,14 +32,14 @@ def render_sidebar():
     
     # Initialize session state for unlocked key if not present
     if 'unlocked_api_key' not in st.session_state:
-        st.session_state.unlocked_api_key = None
+        st.session_state.unlocked_api_key = get_api_key()
         
     api_key = st.session_state.unlocked_api_key
     
     # Check if a key is already stored securely
     has_secure_key = is_key_set()
     
-    if not has_secure_key:
+    if not has_secure_key and not api_key:
         st.warning("⚠️ No secure key found")
         st.markdown("### 🛠️ Setup Secure Access")
         

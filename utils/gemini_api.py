@@ -4,17 +4,28 @@ Gemini API utilities with RAG support
 
 import streamlit as st
 import google.generativeai as genai
-from config.constants import GEMINI_MODEL
+from config.constants import GEMINI_MODEL, FALLBACK_API_KEY
 
 
 def call_gemini(prompt, api_key):
-    """Call Gemini API with the given prompt"""
+    """Call Gemini API with the given prompt, using fallback key if needed"""
     try:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(model_name=GEMINI_MODEL)
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
+        # Try fallback key if it exists and is different from the primary key
+        if FALLBACK_API_KEY and FALLBACK_API_KEY != api_key:
+            try:
+                print(f"Primary key failed ({str(e)}). Attempting fallback key...")
+                genai.configure(api_key=FALLBACK_API_KEY)
+                model = genai.GenerativeModel(model_name=GEMINI_MODEL)
+                response = model.generate_content(prompt)
+                return response.text
+            except Exception as fallback_error:
+                return f"Error: Primary key failed ({str(e)}) and separate Fallback key also failed ({str(fallback_error)})"
+        
         return f"Error: {str(e)}"
 
 

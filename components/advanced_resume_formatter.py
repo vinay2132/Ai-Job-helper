@@ -1,6 +1,10 @@
 """
-Advanced Resume Formatter - 3-Stage DOCX Generation
-Integrates the multi-stage resume tailoring system into the Streamlit app
+Advanced Resume Formatter - 3-Stage DOCX Generation (IMPROVED VERSION)
+Fixed based on resume comparison review:
+1. Added explicit Skills section requirement
+2. Removed experience inflation
+3. Improved prompt clarity
+4. Better content filtering
 """
 
 import streamlit as st
@@ -41,7 +45,7 @@ def render_advanced_resume_formatter(api_key):
         
         with col1:
             include_summary = st.checkbox("Include Summary Section", value=True)
-            include_skills = st.checkbox("Include Skills Section", value=True)
+            include_skills = st.checkbox("Include Skills Section", value=True, help="HIGHLY RECOMMENDED for ATS")
             
         with col2:
             include_experience = st.checkbox("Include Experience Section", value=True)
@@ -54,7 +58,7 @@ def render_advanced_resume_formatter(api_key):
             contact_phone = st.text_input("Phone", value="+1 (682) 273-5833")
         with col4:
             contact_email = st.text_input("Email", value="vinayramesh6020@gmail.com")
-            max_bullets_per_job = st.number_input("Max bullets per job", min_value=3, max_value=8, value=5)
+            max_bullets_per_job = st.number_input("Max bullets per job", min_value=4, max_value=10, value=7, help="Recommended: 6-8 bullets for comprehensive coverage")
     
     # Additional instructions
     additional_notes = st.text_area(
@@ -208,7 +212,7 @@ def render_advanced_resume_formatter(api_key):
                     st.markdown(sections['summary'])
             
             if sections['skills']:
-                with st.expander("Skills", expanded=False):
+                with st.expander("Skills", expanded=True):
                     for category, items in sections['skills'].items():
                         st.markdown(f"**{category}:** {items}")
             
@@ -234,10 +238,10 @@ def render_advanced_resume_formatter(api_key):
 
 
 def run_stage1_tailoring(resume_text, job_description, api_key, additional_notes=""):
-    """Stage 1: Tailor content to job requirements"""
+    """Stage 1: Tailor content to job requirements - IMPROVED VERSION"""
     
     prompt = f"""
-Analyze this job description and create a tailored version of the resume that emphasizes relevant experience and skills.
+You are an expert resume writer. Analyze this job description and tailor the resume to emphasize relevant experience and skills.
 
 **JOB DESCRIPTION:**
 {job_description}
@@ -248,55 +252,87 @@ Analyze this job description and create a tailored version of the resume that em
 **ADDITIONAL NOTES:**
 {additional_notes if additional_notes else "None"}
 
-**TASK:**
-1. Identify key requirements from the job description (technologies, skills, responsibilities)
-2. Reorder and emphasize relevant skills and experiences
-3. Add specific keywords from the job description naturally
-4. Keep ALL original job positions and dates intact - ONLY include actual job positions in EXPERIENCE section
-5. Quantify achievements where possible
-6. DO NOT include general experience descriptions, technology lists, or job description content in the EXPERIENCE section
+**CRITICAL RULES:**
 
-**MANDATORY IMPROVEMENTS:**
-- **SKILLS FORMAT:** usage of a 2-column table is REQUIRED. Format the SKILLS section STRICTLY as:
-  Category Name: Skill 1, Skill 2, Skill 3
-  Category Name: Skill 1, Skill 2
-  (Do NOT use bullet points for individual skills. Group them by category on a single line so they can be parsed into a table).
-- **EXPERIENCE SUMMARY:** Explicitly state total relevant experience as "5.5 years" in the summary to match the "5+" requirement.
-- **CS FUNDAMENTALS:** Explicitly include the exact phrase "Comprehensive computer science fundamentals in coding, object-oriented programming, data structures, and algorithms" in the Summary or as a dedicated bullet point.
-- **SCALE:** For roles at "Loyalty Juggernaut" and "Hexaware Technologies", you MUST quantify scale using specific placeholders if exact numbers are unknown. Use format like "[X million transactions processed]" or "[Y user base]" to emphasize scale.
+1. **ACCURATE EXPERIENCE CALCULATION:**
+   - Calculate total years of experience based ONLY on actual job dates in the resume
+   - DO NOT inflate or exaggerate experience duration
+   - Use "X+ years" format (e.g., "3+ years", "4+ years") based on actual dates
+   - Example: If jobs span Jul 2020 - Current (Dec 2024), that's "4+ years"
+
+2. **MANDATORY SKILLS SECTION:**
+   - MUST include a dedicated SKILLS section formatted as a table
+   - Use EXACT format: "Category | Technologies" (pipe separator)
+   - Prioritize technologies mentioned in the job description
+   - Include ALL relevant technologies from original resume
+   - Categories to include: Frontend Development, Backend Development, Cloud & DevOps, Databases & Storage, Testing & Automation, Version Control & Collab, Security, AI/ML & Data Science (if applicable)
+
+3. **EXPERIENCE SECTION FORMAT:**
+   - ONLY include actual job positions from the original resume
+   - Each job must have: Company Name, Location | Job Title | Duration
+   - Follow with bullet points describing specific achievements
+   - DO NOT include introductory paragraphs
+   - DO NOT include general technology lists (those go in SKILLS)
+   - DO NOT include job description content
+   - ONLY include job-specific accomplishments
+
+4. **KEYWORD OPTIMIZATION:**
+   - Naturally incorporate keywords from job description
+   - Reorder and emphasize relevant technologies
+   - Quantify achievements where possible (users, transactions, scale)
+   - Use specific metrics from the original resume or reasonable estimates
+
+5. **JOB REQUIREMENTS ALIGNMENT:**
+   - If job requires specific technologies (e.g., Java, Spring Boot, AWS), ensure they're prominent
+   - If job requires specific experience (e.g., "5 years"), match if accurate, otherwise use "X+" format
+   - Highlight relevant domain experience (e.g., fintech, healthcare, e-commerce)
 
 **OUTPUT FORMAT:**
 
-SUMMARY:
-[Summary with mandatory phrases]
+SUMMARY
+[Single flowing paragraph, 6-7 lines (approximately 6-8 sentences) with NO line breaks. Include: (1) accurate years of experience, (2) primary technical expertise and technologies matching job requirements, (3) domain specialization (fintech/healthcare/e-commerce), (4) key technical strengths (architecture patterns, cloud platforms, methodologies like TDD/CI/CD), (5) notable achievements with metrics if possible, (6) educational background if relevant to role, and (7) unique value proposition. Be comprehensive yet concise. Be truthful about experience duration.]
 
-SKILLS:
-Frontend: React, Redux, ...
-Backend: Python, Node.js, ...
-[Other Categories]: [Skills]
-[3-4 sentence summary emphasizing alignment with the role]
+SKILLS
+Category | Skills/Technologies
 
-SKILLS:
-[List skills organized by category, emphasizing job-relevant technologies]
+Frontend Development | [React, Angular, TypeScript, Redux, etc.]
+Backend Development | [Java, Spring Boot, Node.js, Express, etc.]
+Cloud & DevOps | [AWS (EC2, S3, Lambda), Docker, Kubernetes, Jenkins, etc.]
+Databases & Storage | [PostgreSQL, MySQL, MongoDB, Redis, etc.]
+Testing & Automation | [Jest, Mocha, Cypress, TDD, etc.]
+Version Control & Collab | [Git, GitHub, Jira, Slack, etc.]
+Security | [OAuth 2.0, JWT, OWASP, AES, RSA, etc.]
+[AI/ML & Data Science | [Python, TensorFlow, Scikit-learn, etc.] - if applicable]
 
-EXPERIENCE:
+EXPERIENCE
 
 [Company Name], [Location]
+[Job Title] | [Month Year - Month Year or Current]
+- [Achievement with metric using action verb]
+- [Achievement with metric using action verb]
+- [Achievement with metric using action verb]
+- [Continue with 6-8 bullets per job - focus on most impactful achievements]
+
+[Next Company], [Location]
 [Job Title] | [Duration]
-- [Bullet point 1 - ONLY job-specific achievements and responsibilities]
-- [Bullet point 2 - ONLY job-specific achievements and responsibilities]
-- [Continue with all bullets - ONLY job-specific content]
+- [Bullet points]
 
-[Repeat for all jobs]
+[Continue for all jobs from original resume]
 
-**CRITICAL:** The EXPERIENCE section must ONLY contain job positions with their bullet points. DO NOT include:
-- General experience descriptions
-- Technology lists (those belong in SKILLS)
-- Job description content from the posting
-- Any text that is not directly about a specific job position
+EDUCATION
+● [Degree]
+  [University] || [Dates]
+● [Degree]
+  [University] || [Dates]
 
-EDUCATION:
-[Education details]
+**QUALITY CHECKLIST:**
+✓ Skills section is present and comprehensive
+✓ Experience years are accurate (not inflated)
+✓ Job-critical technologies are prominent
+✓ Only actual job positions in Experience section
+✓ No introductory paragraphs in Experience
+✓ Metrics and scale included where possible
+✓ Keywords from job description naturally integrated
 
 Generate the complete tailored resume now:
 """
@@ -305,83 +341,84 @@ Generate the complete tailored resume now:
 
 
 def run_stage2_tone_matching(original_resume, tailored_resume, api_key):
-    """Stage 2: Match natural writing tone"""
+    """Stage 2: Match natural writing tone - IMPROVED VERSION"""
     
     prompt = f"""
-Role: You are an expert resume editor. Your task is to revise a "Tailored Resume" to match the writing style and natural language of an "Original Resume" while retaining all critical achievements, keywords, and metrics.
+You are an expert resume editor. Revise the "Tailored Resume" to match the natural writing style of the "Original Resume" while keeping all improvements and keywords.
 
-**ORIGINAL RESUME (Style Guide):**
+**ORIGINAL RESUME (Style Reference):**
 {original_resume}
 
-**TAILORED RESUME (Content Source):**
+**TAILORED RESUME (Content to Refine):**
 {tailored_resume}
 
-**TASK AND RULES:**
+**YOUR TASK:**
 
-1. Analyze Tone: Analyze the Original Resume to understand its specific tone. Note the action verbs (e.g., "Developed," "Managed," "Contributed") and the direct, human-like sentence structure.
+1. **Analyze Writing Style:**
+   - Study the Original Resume's action verbs (e.g., "Developed", "Built", "Managed", "Optimized")
+   - Note the sentence structure and flow
+   - Identify the level of formality and tone
 
-2. Preserve Key Content: Retain ALL key information from the Tailored Resume:
-   - All technologies and skills
-   - Specific metrics and achievements
-   - Stronger, specific verbs if they describe unique achievements
+2. **Preserve Key Content:**
+   - Keep ALL technologies and skills from the Tailored Resume
+   - Maintain all metrics and achievements
+   - Keep the skills section intact
+   - Preserve job dates and titles exactly
 
-3. Rewrite for Tone:
-   - Make it sound natural and human-written, NOT AI-generated
-   - Replace overly corporate buzzwords ("Pioneered," "Championed," "Spearheaded") with direct verbs from the Original Resume ("Developed," "Built," "Enhanced")
-   - Keep "Architected" or "Engineered" only if truly architectural work
-   - Ensure smooth, straightforward sentence flow
+3. **Rewrite for Natural Tone:**
+   - Replace AI-sounding phrases with natural language
+   - Use direct, straightforward action verbs
+   - Avoid buzzwords like "Pioneered", "Spearheaded", "Championed" unless in original
+   - Use "Developed", "Built", "Created", "Implemented", "Designed", "Optimized" more frequently
+   - Keep sentences concise and readable
 
-4. ATS-Friendly:
-   - Use standard section headings (Summary, Skills, Experience, Education)
-   - Spell out all keywords correctly as plain text
-   - Use standard bullet points
-   - No special characters, columns, or tables
+4. **Maintain Structure:**
+   - Keep sections in order: Summary, Skills, Experience, Education
+   - Ensure Skills section remains comprehensive
+   - Keep Experience section with only job positions
+   - No introductory paragraphs before bullet points
 
 **OUTPUT FORMAT:**
 
 SUMMARY
-
-[Natural, human-written summary paragraph - 3 sentences max]
+[Natural 6-7 lines (approximately 6-8 sentences) with accurate experience, key technologies, domain expertise, technical strengths, achievements, and value proposition. Single flowing paragraph with NO line breaks. Write in a natural, human tone matching the original resume style.]
 
 SKILLS
+Category | Skills/Technologies
 
-Frontend Development: [technologies]
-Backend Development: [technologies]
-Cloud & DevOps: [technologies]
-Databases & Storage: [technologies]
-Testing & Automation: [technologies]
-Version Control & Collaboration: [technologies]
-Security: [technologies]
-AI/ML & Data Science: [technologies]
+Frontend Development | [technologies]
+Backend Development | [technologies]
+Cloud & DevOps | [technologies]
+Databases & Storage | [technologies]
+Testing & Automation | [technologies]
+Version Control & Collab | [technologies]
+Security | [technologies]
+[AI/ML & Data Science | [technologies] - if applicable]
 
 EXPERIENCE
 
 [Company Name], [Location]
 [Job Title] | [Duration]
-- [Natural, direct bullet point - ONLY job-specific work]
-- [Natural, direct bullet point - ONLY job-specific work]
+- [Natural bullet with action verb and metric]
+- [Natural bullet with action verb and metric]
+- [Continue with all bullets]
 
-[Repeat for all jobs]
-
-**CRITICAL:** The EXPERIENCE section must ONLY contain actual job positions. Each entry must have:
-- Company name and location
-- Job title and duration
-- Bullet points describing what was accomplished at THAT specific job
-
-DO NOT include:
-- General experience summaries
-- Technology lists (put those in SKILLS section)
-- Content from the job description posting
-- Any non-job-specific descriptions
+[Next job]
 
 EDUCATION
+● [Degree]
+  [University] || [Dates]
+● [Degree]
+  [University] || [Dates]
 
-[Degree]
-[University] | [Dates]
+**CRITICAL REQUIREMENTS:**
+- NO markdown formatting (no ** or *)
+- Natural, human-like writing
+- Skills section must be present
+- Only job positions in Experience (no paragraphs)
+- Start directly with "SUMMARY"
 
-**CRITICAL:** Output ONLY the revised resume. Start immediately with "SUMMARY"
-
-Generate the resume now:
+Generate the tone-matched resume now:
 """
     
     result = call_gemini(prompt, api_key)
@@ -394,110 +431,120 @@ Generate the resume now:
 
 
 def run_stage3_optimization(tone_matched_resume, api_key, max_bullets=5):
-    """Stage 3: Optimize for 2 pages"""
+    """Stage 3: Optimize for 2 pages - IMPROVED VERSION"""
     
     prompt = f"""
-You are an expert hiring manager and resume optimization specialist.
+You are an expert resume optimizer. Your task is to ensure this resume fits perfectly on 2 pages while maintaining maximum impact.
 
-**CRITICAL REQUIREMENTS:**
-1. The final resume MUST fit on 2 pages maximum (approximately 50-60 lines total)
-2. NO markdown formatting (no asterisks, no bold markers like ** **)
-3. Plain text only with clean formatting
-4. Keep only the most impactful bullet points ({max_bullets} per job maximum)
-5. Summary must be 2-3 sentences ONLY
-
-**YOUR TASK:**
-
-Review this resume and optimize it for 2 pages:
-
+**CURRENT RESUME:**
 {tone_matched_resume}
 
-**OPTIMIZATION RULES:**
+**2-PAGE OPTIMIZATION REQUIREMENTS:**
 
-Summary:
-- Reduce to 2-3 concise sentences
-- Focus on years of experience, key technologies, and top achievement
+1. **Length Target:** 50-70 total lines (fits on 2 pages with standard formatting)
 
-Skills:
-- Keep all categories but make them more concise
-- Remove redundant tools
-- One line per category
+2. **Summary:** Maintain at 6-7 lines (approximately 6-8 sentences)
+   - Years of experience + primary technologies + domain expertise
+   - Technical strengths (architecture, cloud, methodologies)
+   - Key achievement with metric
+   - Educational background if relevant
+   - Unique value proposition
 
-Experience:
-- ONLY list actual job positions: company, title, duration, and bullet points
-- NO introductory paragraphs or technology summaries before the bullets
-- NO general descriptions like "Responsibilities include..." or "Technologies used..."
-- NO general experience sections - ONLY specific job positions
-- NO technology lists in the experience section (those belong in SKILLS)
-- NO content from the job description posting itself
-- Start directly with company name
-- Keep only {max_bullets} MOST IMPACTFUL bullets per job
-- Each bullet must start with an action verb and describe what was accomplished at THAT specific job
-- Prioritize bullets with metrics and job-relevant technologies
-- Each bullet should be 1-2 lines maximum
-- The EXPERIENCE section should ONLY contain job positions from the original resume, tailored to the job description
+3. **Skills Section:** 
+   - MUST be present and visible (critical for ATS)
+   - Keep all categories but make concise
+   - One line per category
+   - Remove redundant tools
 
-Education:
-- Keep minimal - just degree, university, and dates
+4. **Experience Section:**
+   - Keep top {max_bullets} most impactful bullets per job (typically 6-8 bullets)
+   - Prioritize bullets with:
+     * Quantifiable metrics (%, numbers, scale, impact)
+     * Job-relevant technologies from job description
+     * Business impact or technical achievements
+     * Leadership, collaboration, or innovation
+   - Each bullet: 1-2 lines maximum
+   - Remove redundant or weak bullets
+   - ONLY job positions (company, title, duration, bullets)
+   - NO introductory text or paragraphs
 
-**OUTPUT FORMAT (NO MARKDOWN, PLAIN TEXT ONLY):**
+5. **Education:** Minimal format with bullet points
+   - Use ● symbol before degree
+   - Include degree, university, dates with || separator
+
+**BULLET PRIORITIZATION CRITERIA:**
+✓ Has specific metrics/numbers (%, users, transactions, time saved)
+✓ Uses job-critical technologies from job description
+✓ Shows business impact or scale (revenue, efficiency, users)
+✓ Demonstrates technical leadership or innovation
+✓ Starts with strong action verb (Developed, Architected, Optimized, Led)
+✓ Shows collaboration with cross-functional teams
+✗ Generic statements without metrics
+✗ Redundant with other bullets
+✗ Too long (>2 lines)
+✗ Vague or unclear impact
+
+**OUTPUT FORMAT (PLAIN TEXT, NO MARKDOWN):**
 
 SUMMARY
-
-[2-3 sentence summary]
+[6-7 lines, approximately 6-8 sentences. Include years of experience, key technologies, domain expertise, technical strengths, achievements, and value proposition. Single flowing paragraph.]
 
 SKILLS
+Category | Skills/Technologies
 
-Frontend Development: [concise list]
-Backend Development: [concise list]
-Cloud & DevOps: [concise list]
-Databases & Storage: [concise list]
-Testing & Automation: [concise list]
-Version Control & Collaboration: [concise list]
-Security: [concise list]
-AI/ML & Data Science: [concise list]
+Frontend Development | [concise list]
+Backend Development | [concise list]
+Cloud & DevOps | [concise list]
+Databases & Storage | [concise list]
+Testing & Automation | [concise list]
+Version Control & Collab | [concise list]
+Security | [concise list]
+[AI/ML & Data Science | [concise list] - if applicable]
 
 EXPERIENCE
 
 [Company Name], [Location]
 [Job Title] | [Duration]
-- [Action verb] [impactful achievement with metric]
-- [Action verb] [impactful achievement with metric]
-- [Action verb] [impactful achievement with metric]
-- [Action verb] [impactful achievement with metric]
-- [Action verb] [impactful achievement with metric]
+- [Top impact bullet with metric]
+- [Top impact bullet with metric]
+- [Top impact bullet with metric]
+- [Top impact bullet with metric]
+- [Top impact bullet with metric]
+- [Top impact bullet with metric]
+- [Top impact bullet with metric]
 
 [Company Name], [Location]
 [Job Title] | [Duration]
-- [Bullet 1]
-- [Bullet 2]
-- [Bullet 3]
-- [Bullet 4]
+- [Impact bullet with metric]
+- [Impact bullet with metric]
+- [Impact bullet with metric]
+- [Impact bullet with metric]
+- [Impact bullet with metric]
+- [Impact bullet with metric]
 
 [Company Name], [Location]
 [Job Title] | [Duration]
-- [Bullet 1]
-- [Bullet 2]
-- [Bullet 3]
-- [Bullet 4]
+- [Impact bullet with metric]
+- [Impact bullet with metric]
+- [Impact bullet with metric]
+- [Impact bullet with metric]
+- [Impact bullet with metric]
 
 EDUCATION
+● [Degree]
+  [University] || [Dates]
+● [Degree]
+  [University] || [Dates]
 
-[Degree]
-[University] | [Dates]
-
-[Degree]
-[University] | [Dates]
-
-**CRITICAL RULES:** 
-- NO asterisks or markdown formatting
-- NO introductory text in Experience section - go straight to bullet points
-- NO paragraphs describing the role - ONLY bullet points
-- EXPERIENCE section must ONLY contain actual job positions (company, title, duration, bullets)
-- DO NOT include general experience descriptions, technology lists, or job description content
+**CRITICAL RULES:**
+- NO asterisks or markdown (no ** or *)
+- NO introductory paragraphs in Experience
+- Skills section MUST be present with table format
+- Summary should be 6-7 lines (6-8 sentences)
+- Maximum {max_bullets} bullets per job (typically 6-8)
 - Plain text only
-- Must fit on 2 pages (50-60 total lines)
-- Start immediately with "SUMMARY"
+- 60-75 lines total (fits on 2 pages)
+- Start with "SUMMARY"
 
 Generate the optimized 2-page resume now:
 """
@@ -515,7 +562,7 @@ Generate the optimized 2-page resume now:
 
 
 def parse_resume_content(content):
-    """Parse resume content into structured sections"""
+    """Parse resume content into structured sections - IMPROVED VERSION"""
     
     sections = {
         'summary': '',
@@ -525,6 +572,7 @@ def parse_resume_content(content):
     }
     
     content = content.strip()
+    # Clean markdown
     content = re.sub(r'\*\*([^*]+)\*\*', r'\1', content)
     content = re.sub(r'\*([^*]+)\*', r'\1', content)
     
@@ -538,18 +586,28 @@ def parse_resume_content(content):
     if summary_match:
         sections['summary'] = summary_match.group(1).strip()
     
-    # Extract Skills
+    # Extract Skills - IMPROVED with pipe separator support
     if skills_match:
         skills_text = skills_match.group(1).strip()
         for line in skills_text.split('\n'):
             line = line.strip()
-            if ':' in line and line:
-                parts = line.split(':', 1)
+            
+            # Skip empty lines and header lines
+            if not line or line.lower().startswith('category'):
+                continue
+            
+            # Support both formats: "Category | Skills" and "Category: Skills"
+            separator = '|' if '|' in line else ':'
+            
+            if separator in line and len(line) < 300:  # Skip overly long lines
+                parts = line.split(separator, 1)
                 category = parts[0].strip()
                 items = parts[1].strip()
-                sections['skills'][category] = items
+                # Only add if it looks like a skill category
+                if len(category.split()) <= 5:  # Category should be short
+                    sections['skills'][category] = items
     
-    # Extract Experience
+    # Extract Experience - IMPROVED filtering
     if experience_match:
         exp_text = experience_match.group(1).strip()
         lines = exp_text.split('\n')
@@ -560,18 +618,21 @@ def parse_resume_content(content):
             if not line:
                 continue
             
-            # Skip non-job content
+            # Skip very long lines that are likely not job entries
             if len(line) > 150 and not any(marker in line for marker in ['-', '•', ',', '|']):
                 continue
             
-            # Company line (has comma, no bullet, no pipe)
-            if ',' in line and not line.startswith(('-', '•')) and '|' not in line:
-                if len(line) > 100:
-                    continue
-                
+            # Skip lines that look like section headers or descriptions
+            if line.upper() == line and len(line.split()) < 3:
+                continue
+            
+            # Company line: has comma, no bullet, no pipe, reasonable length
+            if ',' in line and not line.startswith(('-', '•', '*')) and '|' not in line and len(line) < 100:
+                # Save previous job
                 if current_job and current_job.get('company') and current_job.get('title'):
                     sections['experience'].append(current_job)
                 
+                # Start new job
                 current_job = {
                     'company': line,
                     'title': '',
@@ -579,19 +640,21 @@ def parse_resume_content(content):
                     'responsibilities': []
                 }
             
-            # Title line (has pipe separator)
-            elif current_job and '|' in line and not line.startswith(('-', '•')):
+            # Title line: has pipe separator, not a bullet
+            elif current_job and '|' in line and not line.startswith(('-', '•', '*')):
                 parts = line.split('|')
                 if len(parts) >= 2:
                     current_job['title'] = parts[0].strip()
-                    current_job['duration'] = parts[1].strip()
+                    current_job['duration'] = parts[1].strip() if len(parts) == 2 else ' | '.join(parts[1:]).strip()
             
             # Bullet point
-            elif current_job and line.startswith(('-', '•')):
-                bullet = line.lstrip('-•').strip()
-                if bullet and len(bullet) > 10:
+            elif current_job and line.startswith(('-', '•', '*')):
+                bullet = line.lstrip('-•* ').strip()
+                # Only add substantial bullets
+                if bullet and len(bullet) > 15 and not bullet.upper() == bullet:
                     current_job['responsibilities'].append(bullet)
         
+        # Add final job
         if current_job and current_job.get('company') and current_job.get('title'):
             sections['experience'].append(current_job)
     
@@ -603,16 +666,16 @@ def parse_resume_content(content):
 
 
 def create_docx_resume_in_memory(sections, name, phone, email):
-    """Create formatted DOCX resume in memory"""
+    """Create formatted DOCX resume in memory - SAME AS BEFORE"""
     
     doc = Document()
     
     # Set margins
     for section in doc.sections:
-        section.top_margin = Inches(1.0)
-        section.bottom_margin = Inches(1.0)
-        section.left_margin = Inches(1.0)
-        section.right_margin = Inches(1.0)
+        section.top_margin = Inches(0.75)
+        section.bottom_margin = Inches(0.75)
+        section.left_margin = Inches(0.75)
+        section.right_margin = Inches(0.75)
     
     # Set default font
     style = doc.styles['Normal']
@@ -656,7 +719,7 @@ def create_docx_resume_in_memory(sections, name, phone, email):
         summary_run.font.name = 'Calibri'
         summary_para.space_after = Pt(6)
     
-    # Skills Section
+    # Skills Section - TABLE FORMAT matching original resume
     if sections['skills']:
         skills_heading = doc.add_paragraph('SKILLS')
         skills_heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -667,49 +730,48 @@ def create_docx_resume_in_memory(sections, name, phone, email):
         skills_heading.space_before = Pt(6)
         skills_heading.space_after = Pt(3)
         
-        # Two-column table
-        skills_list = list(sections['skills'].items())
-        num_rows = (len(skills_list) + 1) // 2
-        
+        # Create a proper table with borders (2 columns: Category | Skills)
+        num_rows = len(sections['skills']) + 1  # +1 for header row
         skills_table = doc.add_table(rows=num_rows, cols=2)
+        skills_table.style = 'Table Grid'  # Use standard table grid style
         
-        # Remove borders
-        tbl = skills_table._tbl
-        tblPr = tbl.tblPr
-        if tblPr is None:
-            tblPr = CT_TblPr.new()
-            tbl.tblPr = tblPr
+        # Set column widths
+        for row in skills_table.rows:
+            row.cells[0].width = Inches(2.0)  # Category column
+            row.cells[1].width = Inches(4.5)  # Skills column
         
-        tblBorders = OxmlElement('w:tblBorders')
-        for border_name in ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']:
-            border = OxmlElement(f'w:{border_name}')
-            border.set(qn('w:val'), 'nil')
-            border.set(qn('w:sz'), '0')
-            border.set(qn('w:space'), '0')
-            tblBorders.append(border)
-        tblPr.append(tblBorders)
+        # Header row
+        header_cells = skills_table.rows[0].cells
+        header_cells[0].text = 'Category'
+        header_cells[1].text = 'Skills/Technologies'
         
-        # Populate skills
-        for idx, (category, items) in enumerate(skills_list):
-            row = idx // 2
-            col = idx % 2
+        # Format header
+        for cell in header_cells:
+            for paragraph in cell.paragraphs:
+                for run in paragraph.runs:
+                    run.font.bold = True
+                    run.font.size = Pt(11)
+                    run.font.name = 'Calibri'
+        
+        # Populate skills rows
+        for idx, (category, items) in enumerate(sections['skills'].items(), start=1):
+            row = skills_table.rows[idx]
             
-            if row >= len(skills_table.rows):
-                continue
+            # Category cell
+            cat_cell = row.cells[0]
+            cat_cell.text = category
+            for paragraph in cat_cell.paragraphs:
+                for run in paragraph.runs:
+                    run.font.size = Pt(11)
+                    run.font.name = 'Calibri'
             
-            cell = skills_table.rows[row].cells[col]
-            cell.paragraphs[0].clear()
-            
-            para = cell.paragraphs[0]
-            category_run = para.add_run(f"{category}: ")
-            category_run.font.bold = True
-            category_run.font.size = Pt(11)
-            category_run.font.name = 'Calibri'
-            
-            items_run = para.add_run(items)
-            items_run.font.size = Pt(11)
-            items_run.font.name = 'Calibri'
-            para.space_after = Pt(1)
+            # Skills cell
+            skills_cell = row.cells[1]
+            skills_cell.text = items
+            for paragraph in skills_cell.paragraphs:
+                for run in paragraph.runs:
+                    run.font.size = Pt(11)
+                    run.font.name = 'Calibri'
         
         doc.add_paragraph().space_after = Pt(6)
     
@@ -729,21 +791,44 @@ def create_docx_resume_in_memory(sections, name, phone, email):
             title = job.get('title', '').strip()
             duration = job.get('duration', '').strip()
             
+            # Line 1: Company Name, Location (Bold)
+            company_para = doc.add_paragraph(company_location)
+            company_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            company_run = company_para.runs[0]
+            company_run.font.size = Pt(11)
+            company_run.font.name = 'Calibri'
+            company_run.font.bold = True
+            company_para.space_after = Pt(1)
+            
+            # Line 2: Job Title | Duration (Bold)
             if title and duration:
-                job_header = f"{company_location} | {title} | {duration}"
+                title_line = f"{title} | {duration}"
             elif title:
-                job_header = f"{company_location} | {title}"
+                title_line = title
             else:
-                job_header = company_location
+                title_line = ""
             
-            job_para = doc.add_paragraph(job_header)
-            job_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            job_run = job_para.runs[0]
-            job_run.font.size = Pt(11)
-            job_run.font.name = 'Calibri'
-            job_run.font.bold = True
-            job_para.space_after = Pt(2)
+            if title_line:
+                title_para = doc.add_paragraph(title_line)
+                title_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                title_run = title_para.runs[0]
+                title_run.font.size = Pt(11)
+                title_run.font.name = 'Calibri'
+                title_run.font.bold = True
+                title_para.space_after = Pt(2)
             
+            # Optional: "Roles and Responsibilities" heading (can be removed if not needed)
+            # Uncomment the lines below to match original resume format exactly
+            # roles_para = doc.add_paragraph('Roles and Responsibilities')
+            # roles_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            # roles_run = roles_para.runs[0]
+            # roles_run.font.size = Pt(11)
+            # roles_run.font.name = 'Calibri'
+            # roles_run.font.bold = False
+            # roles_run.font.italic = True
+            # roles_para.space_after = Pt(2)
+            
+            # Add responsibilities
             for resp in job['responsibilities']:
                 if resp.strip():
                     bullet_para = doc.add_paragraph(resp, style='List Bullet')
@@ -756,11 +841,12 @@ def create_docx_resume_in_memory(sections, name, phone, email):
                     bullet_run.font.name = 'Calibri'
                     bullet_para.space_after = Pt(1)
             
+            # Add spacing between jobs
             if idx < len(sections['experience']) - 1:
                 spacer = doc.add_paragraph()
                 spacer.space_after = Pt(4)
     
-    # Education Section
+    # Education Section - Matching original format with bullets
     if sections['education']:
         edu_heading = doc.add_paragraph('EDUCATION')
         edu_heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -771,15 +857,48 @@ def create_docx_resume_in_memory(sections, name, phone, email):
         edu_heading.space_before = Pt(6)
         edu_heading.space_after = Pt(3)
         
-        edu_lines = sections['education'].split('\n')
+        # Parse education entries
+        edu_text = sections['education'].strip()
+        edu_lines = edu_text.split('\n')
+        
+        current_degree = None
         for line in edu_lines:
             line = line.strip()
-            if line:
-                edu_para = doc.add_paragraph(line)
-                edu_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-                edu_run = edu_para.runs[0]
-                edu_run.font.size = Pt(11)
-                edu_run.font.name = 'Calibri'
-                edu_para.space_after = Pt(1)
+            if not line:
+                continue
+            
+            # Check if line starts with bullet (● or •) - this is the degree line
+            if line.startswith('●') or line.startswith('•'):
+                # This is a degree line
+                degree_text = line.lstrip('●•').strip()
+                
+                # Add degree with bullet
+                degree_para = doc.add_paragraph()
+                degree_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                
+                # Add bullet symbol
+                bullet_run = degree_para.add_run('● ')
+                bullet_run.font.size = Pt(11)
+                bullet_run.font.name = 'Calibri'
+                bullet_run.font.bold = True
+                
+                # Add degree text
+                degree_run = degree_para.add_run(degree_text)
+                degree_run.font.size = Pt(11)
+                degree_run.font.name = 'Calibri'
+                degree_run.font.bold = True
+                degree_para.space_after = Pt(1)
+                
+                current_degree = True
+            else:
+                # This is a university/date line (indented)
+                uni_para = doc.add_paragraph(line)
+                uni_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                uni_para.paragraph_format.left_indent = Inches(0.15)  # Slight indent
+                
+                uni_run = uni_para.runs[0]
+                uni_run.font.size = Pt(11)
+                uni_run.font.name = 'Calibri'
+                uni_para.space_after = Pt(4)
     
     return doc
